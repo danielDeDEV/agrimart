@@ -4,6 +4,7 @@ const {
 } = require('../models');
 const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
+const { LIKE, monthExpression } = require('../utils/search');
 const { get: setting } = require('../services/settingsService');
 const { ok, paginated } = require('../utils/response');
 const { paginate, normalizePhone, daysAgo } = require('../utils/helpers');
@@ -126,12 +127,12 @@ exports.dashboard = asyncHandler(async (req, res) => {
       createdAt: { [Op.gte]: since },
     },
     attributes: [
-      [sequelize.fn('DATE_FORMAT', sequelize.col('createdAt'), '%Y-%m'), 'month'],
+      [monthExpression(sequelize), 'month'],
       [sequelize.fn('COUNT', sequelize.col('id')), 'orders'],
       [sequelize.fn('SUM', sequelize.col('totalAmount')), 'value'],
     ],
-    group: [sequelize.fn('DATE_FORMAT', sequelize.col('createdAt'), '%Y-%m')],
-    order: [[sequelize.fn('DATE_FORMAT', sequelize.col('createdAt'), '%Y-%m'), 'ASC']],
+    group: [monthExpression(sequelize)],
+    order: [[monthExpression(sequelize), 'ASC']],
     raw: true,
   });
 

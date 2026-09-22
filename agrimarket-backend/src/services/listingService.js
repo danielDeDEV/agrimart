@@ -4,6 +4,7 @@ const { sendSms } = require('./smsService');
 const { notify } = require('./notificationService');
 const { activity } = require('../sockets/io');
 const ApiError = require('../utils/ApiError');
+const { LIKE } = require('../utils/search');
 const logger = require('../utils/logger');
 const { get: setting } = require('../services/settingsService');
 
@@ -187,10 +188,10 @@ function buildListingQuery(query = {}) {
   if (query.search) {
     const term = `%${query.search}%`;
     where[Op.or] = [
-      { title: { [Op.like]: term } },
-      { description: { [Op.like]: term } },
-      { code: { [Op.like]: term } },
-      { location: { [Op.like]: term } },
+      { title: { [LIKE]: term } },
+      { description: { [LIKE]: term } },
+      { code: { [LIKE]: term } },
+      { location: { [LIKE]: term } },
     ];
   }
 

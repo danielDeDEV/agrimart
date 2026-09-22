@@ -4,6 +4,7 @@ const ApiError = require('../utils/ApiError');
 const { ok, created, paginated } = require('../utils/response');
 const { paginate } = require('../utils/helpers');
 const orderService = require('../services/orderService');
+const { LIKE } = require('../utils/search');
 const auditService = require('../services/auditService');
 const upload = require('../middleware/upload');
 const { sendSms } = require('../services/smsService');
@@ -31,7 +32,7 @@ exports.list = asyncHandler(async (req, res) => {
   else where[Op.or] = [{ buyerId: req.user.id }, { farmerId: req.user.id }];
 
   if (req.query.status) where.status = req.query.status;
-  if (req.query.search) where.code = { [Op.like]: `%${req.query.search}%` };
+  if (req.query.search) where.code = { [LIKE]: `%${req.query.search}%` };
 
   const { rows, count } = await Order.findAndCountAll({
     where,

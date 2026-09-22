@@ -59,7 +59,7 @@ check('the SMS centre is untouched', countSms() === before.sms, `${countSms()} v
 
 // the only rows a simulated session may leave behind are its own session records
 const sessions = sqlNumber(`SELECT COUNT(*) FROM ussd_sessions WHERE ${col('sessionId')} LIKE 'SIM-TEST-%'`);
-check('simulator sessions are flagged as simulated', sqlNumber(`SELECT COUNT(*) FROM ussd_sessions WHERE ${col('sessionId')} LIKE 'SIM-TEST-%' AND ${col('isSimulated')}=1`) === sessions, String(sessions));
+check('simulator sessions are flagged as simulated', sqlNumber(`SELECT COUNT(*) FROM ussd_sessions WHERE ${col('sessionId')} LIKE 'SIM-TEST-%' AND ${col('isSimulated')} = TRUE`) === sessions, String(sessions));
 sql(`DELETE FROM ussd_sessions WHERE ${col('sessionId')} LIKE 'SIM-TEST-%'`);
 console.log('\n  simulator sessions cleared');
 

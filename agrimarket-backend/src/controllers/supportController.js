@@ -4,6 +4,7 @@ const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
 const { ok, created, paginated } = require('../utils/response');
 const { paginate, generateCode, normalizePhone } = require('../utils/helpers');
+const { LIKE, orderByValues } = require('../utils/search');
 const { sendSms } = require('../services/smsService');
 const { notify } = require('../services/notificationService');
 const auditService = require('../services/auditService');
@@ -66,10 +67,10 @@ exports.list = asyncHandler(async (req, res) => {
   if (req.query.search) {
     const term = `%${req.query.search}%`;
     where[Op.or] = [
-      { code: { [Op.like]: term } },
-      { subject: { [Op.like]: term } },
-      { message: { [Op.like]: term } },
-      { phone: { [Op.like]: term } },
+      { code: { [LIKE]: term } },
+      { subject: { [LIKE]: term } },
+      { message: { [LIKE]: term } },
+      { phone: { [LIKE]: term } },
     ];
   }
 
@@ -81,7 +82,7 @@ exports.list = asyncHandler(async (req, res) => {
       { model: Order, as: 'order', attributes: ['id', 'code', 'status', 'totalAmount', 'paymentProof'], required: false },
     ],
     order: [
-      [require('../models').sequelize.literal("FIELD(priority,'urgent','high','normal','low')"), 'ASC'],
+      [orderByValues(require('../models').sequelize, 'priority', ['urgent', 'high', 'normal', 'low']), 'ASC'],
       ['createdAt', 'DESC'],
     ],
     limit,

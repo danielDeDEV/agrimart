@@ -4,6 +4,7 @@ const ApiError = require('../utils/ApiError');
 const { ok, created, paginated } = require('../utils/response');
 const { paginate, slugify } = require('../utils/helpers');
 const { sendBulkSms } = require('../services/smsService');
+const { LIKE } = require('../utils/search');
 const auditService = require('../services/auditService');
 
 const TIP_INCLUDES = [
@@ -21,7 +22,7 @@ exports.list = asyncHandler(async (req, res) => {
   if (req.query.regionId) where[Op.or] = [{ regionId: req.query.regionId }, { regionId: null }];
   if (req.query.search) {
     const term = `%${req.query.search}%`;
-    where[Op.or] = [{ title: { [Op.like]: term } }, { excerpt: { [Op.like]: term } }, { content: { [Op.like]: term } }];
+    where[Op.or] = [{ title: { [LIKE]: term } }, { excerpt: { [LIKE]: term } }, { content: { [LIKE]: term } }];
   }
 
   const { rows, count } = await FarmingTip.findAndCountAll({

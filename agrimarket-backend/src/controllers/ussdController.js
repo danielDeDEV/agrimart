@@ -4,6 +4,7 @@ const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
 const { ok, paginated } = require('../utils/response');
 const { paginate, normalizePhone, daysAgo } = require('../utils/helpers');
+const { LIKE } = require('../utils/search');
 const { handleRequest } = require('../ussd/engine');
 const { v4: uuid } = require('uuid');
 const logger = require('../utils/logger');
@@ -126,7 +127,7 @@ exports.sessions = asyncHandler(async (req, res) => {
   const where = {};
 
   if (req.query.status) where.status = req.query.status;
-  if (req.query.phone) where.phone = { [Op.like]: `%${normalizePhone(req.query.phone)}%` };
+  if (req.query.phone) where.phone = { [LIKE]: `%${normalizePhone(req.query.phone)}%` };
   if (req.query.outcome) where.outcome = req.query.outcome;
   if (req.query.includeSimulated !== 'true') where.isSimulated = false;
 

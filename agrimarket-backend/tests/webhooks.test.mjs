@@ -62,7 +62,7 @@ check('and the farmer lands on the main menu', /Sell Produce/i.test(screen.text)
 
 console.log('\n3. Delivery reports');
 const smsId = sql("SELECT id FROM sms_messages WHERE direction='outbound' ORDER BY id DESC LIMIT 1");
-sql(`UPDATE sms_messages SET providerMessageId='${dr}', status='sent', ${col('errorMessage')}=NULL WHERE id=${smsId}`);
+sql(`UPDATE sms_messages SET ${col('providerMessageId')}='${dr}', status='sent', ${col('errorMessage')}=NULL WHERE id=${smsId}`);
 r = await post('/sms/delivery-report', { id: dr, status: 'Success', phoneNumber: PHONE, networkCode: '62002' });
 check('accepts the receipt', r.status === 200, String(r.status));
 check('marks the message delivered', sql(`SELECT status FROM sms_messages WHERE id=${smsId}`) === 'delivered');
@@ -77,7 +77,7 @@ check('an unknown id is still accepted', r.status === 200);
 console.log('\n4. Incoming SMS');
 r = await post('/sms/inbound', { from: PHONE, to: '1234', text: 'PRICE MAIZE', date: '2026-09-19 10:00:00', id: inbound, linkId: 'link-1' });
 check('accepts the message', r.status === 200, r.text.slice(0, 60));
-const logged = sql(`SELECT COUNT(*) FROM sms_messages WHERE providerMessageId='${inbound}' AND direction='inbound'`);
+const logged = sql(`SELECT COUNT(*) FROM sms_messages WHERE ${col('providerMessageId')}='${inbound}' AND direction='inbound'`);
 check('logs it against the farmer', logged === '1', logged);
 const reply = sql("SELECT message FROM sms_messages WHERE direction='outbound' ORDER BY id DESC LIMIT 1");
 check('replies with maize prices', /maize/i.test(reply), reply.slice(0, 70));

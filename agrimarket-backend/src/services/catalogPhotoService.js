@@ -1,6 +1,7 @@
 const { Produce, Category, Listing, Op, sequelize } = require('../models');
 const { produceImage, categoryImage, isCataloguePhoto } = require('../utils/catalogPhotos');
 const logger = require('../utils/logger');
+const { LIKE } = require('../utils/search');
 
 const isLibraryPath = (url) => typeof url === 'string' && url.startsWith('/images/');
 const isLegacyLink = (url) => typeof url === 'string' && /wikimedia\.org\//i.test(url);
@@ -36,9 +37,9 @@ async function ensureCatalogPhotos() {
     attributes: ['id', 'images'],
     where: {
       [Op.or]: [
-        sequelize.where(imagesText, Op.like, '%wikimedia.org%'),
-        sequelize.where(imagesText, Op.like, '%/images/produce/%'),
-        sequelize.where(imagesText, Op.like, '%/images/categories/%'),
+        sequelize.where(imagesText, LIKE, '%wikimedia.org%'),
+        sequelize.where(imagesText, LIKE, '%/images/produce/%'),
+        sequelize.where(imagesText, LIKE, '%/images/categories/%'),
       ],
     },
     paranoid: false,

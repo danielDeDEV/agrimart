@@ -12,6 +12,7 @@ const env = require('../config/env');
 const { connectDatabase, sequelize } = require('../config/database');
 const { User, Setting, Listing, Order, SmsMessage, Produce, Op } = require('../models');
 const settingsService = require('../services/settingsService');
+const { LIKE } = require('../utils/search');
 
 const red = (s) => `\x1b[31m${s}\x1b[0m`;
 const green = (s) => `\x1b[32m${s}\x1b[0m`;
@@ -116,7 +117,7 @@ const DEMO_LOGINS = [
   // ── 5. Demo trade left in the shop window ──────────────────────────
   const listings = await Listing.count();
   const orders = await Order.count();
-  const demoSellers = await User.count({ where: { email: { [Op.like]: '%@example.gh' } } });
+  const demoSellers = await User.count({ where: { email: { [LIKE]: '%@example.gh' } } });
   if (demoSellers) {
     warnings.push(`${demoSellers} seeded demo accounts (@example.gh) are still in the database, with their listings and orders.`);
   }

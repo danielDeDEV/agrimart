@@ -8,6 +8,8 @@ const ApiError = require('../utils/ApiError');
 const { ok, created, paginated } = require('../utils/response');
 const { paginate, daysAgo, normalizePhone, generateOtp } = require('../utils/helpers');
 const listingService = require('../services/listingService');
+const { LIKE, monthExpression } = require('../utils/search');
+const { isPostgres } = require('../config/database');
 const orderService = require('../services/orderService');
 const auditService = require('../services/auditService');
 const staffPolicy = require('../services/staffPolicy');
@@ -183,10 +185,10 @@ exports.listUsers = asyncHandler(async (req, res) => {
   if (req.query.search) {
     const term = `%${req.query.search}%`;
     where[Op.or] = [
-      { fullName: { [Op.like]: term } },
-      { phone: { [Op.like]: `%${normalizePhone(req.query.search) || req.query.search}%` } },
-      { email: { [Op.like]: term } },
-      { businessName: { [Op.like]: term } },
+      { fullName: { [LIKE]: term } },
+      { phone: { [LIKE]: `%${normalizePhone(req.query.search) || req.query.search}%` } },
+      { email: { [LIKE]: term } },
+      { businessName: { [LIKE]: term } },
     ];
   }
 
@@ -482,7 +484,7 @@ exports.listOrders = asyncHandler(async (req, res) => {
   const where = {};
   if (req.query.status) where.status = req.query.status;
   if (req.query.source) where.source = req.query.source;
-  if (req.query.search) where.code = { [Op.like]: `%${req.query.search}%` };
+  if (req.query.search) where.code = { [LIKE]: `%${req.query.search}%` };
   if (req.query.from || req.query.to) {
     where.createdAt = {};
     if (req.query.from) where.createdAt[Op.gte] = new Date(req.query.from);
@@ -545,7 +547,9 @@ exports.analytics = asyncHandler(async (req, res) => {
     include: [{ model: Produce, as: 'produce', attributes: ['id', 'name'] }],
     where: { priceDate: { [Op.gte]: since.toISOString().slice(0, 10) } },
     group: ['produceId', 'produce.id', 'produce.name'],
-    having: sequelize.literal('COUNT(MarketPrice.id) > 1'),
+    // The table alias must be quoted on PostgreSQL, which would otherwise
+    // fold "MarketPrice" to lowercase and not find it
+    having: sequelize.literal(isPostgres ? 'COUNT("MarketPrice"."id") > 1' : 'COUNT(MarketPrice.id) > 1'),
     limit: 12,
   });
 
@@ -581,13 +585,13 @@ exports.analytics = asyncHandler(async (req, res) => {
   const monthlyGmv = await Order.findAll({
     where: { status: 'completed', createdAt: { [Op.gte]: since } },
     attributes: [
-      [sequelize.fn('DATE_FORMAT', sequelize.col('createdAt'), '%Y-%m'), 'month'],
+      [monthExpression(sequelize), 'month'],
       [sequelize.fn('SUM', sequelize.col('totalAmount')), 'gmv'],
       [sequelize.fn('COUNT', sequelize.col('id')), 'orders'],
       [sequelize.fn('COUNT', sequelize.fn('DISTINCT', sequelize.col('farmerId'))), 'sellers'],
     ],
-    group: [sequelize.fn('DATE_FORMAT', sequelize.col('createdAt'), '%Y-%m')],
-    order: [[sequelize.fn('DATE_FORMAT', sequelize.col('createdAt'), '%Y-%m'), 'ASC']],
+    group: [monthExpression(sequelize)],
+    order: [[monthExpression(sequelize), 'ASC']],
     raw: true,
   });
 
@@ -708,7 +712,7 @@ exports.createImpact = asyncHandler(async (req, res) => {
 exports.auditLogs = asyncHandler(async (req, res) => {
   const { page, limit, offset } = paginate(req.query, { limit: 30 });
   const where = {};
-  if (req.query.action) where.action = { [Op.like]: `%${req.query.action}%` };
+  if (req.query.action) where.action = { [LIKE]: `%${req.query.action}%` };
   if (req.query.entity) where.entity = req.query.entity;
   if (req.query.severity) where.severity = req.query.severity;
   if (req.query.userId) where.userId = req.query.userId;
@@ -782,7 +786,7 @@ exports.listTransactions = asyncHandler(async (req, res) => {
   const where = {};
   if (req.query.type) where.type = req.query.type;
   if (req.query.status) where.status = req.query.status;
-  if (req.query.search) where.reference = { [Op.like]: `%${req.query.search}%` };
+  if (req.query.search) where.reference = { [LIKE]: `%${req.query.search}%` };
 
   const { rows, count } = await Transaction.findAndCountAll({
     where,

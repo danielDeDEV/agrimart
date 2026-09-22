@@ -4,6 +4,7 @@ const ApiError = require('../utils/ApiError');
 const { ok, created } = require('../utils/response');
 const { slugify } = require('../utils/helpers');
 const auditService = require('../services/auditService');
+const { LIKE } = require('../utils/search');
 const upload = require('../middleware/upload');
 const { produceImage, categoryImage } = require('../utils/catalogPhotos');
 
@@ -72,7 +73,7 @@ exports.categories = asyncHandler(async (req, res) => {
 exports.produce = asyncHandler(async (req, res) => {
   const where = { isActive: true };
   if (req.query.categoryId) where.categoryId = req.query.categoryId;
-  if (req.query.search) where.name = { [Op.like]: `%${req.query.search}%` };
+  if (req.query.search) where.name = { [LIKE]: `%${req.query.search}%` };
 
   const rows = await Produce.findAll({
     where,
@@ -92,10 +93,13 @@ exports.produceDetail = asyncHandler(async (req, res) => {
 
   const [activeListings, avgPrice] = await Promise.all([
     Listing.count({ where: { produceId: produce.id, status: 'active' } }),
+    // One aggregate over every recorded price for this produce. No ORDER BY:
+    // with an aggregate and no GROUP BY, PostgreSQL requires the ordering
+    // column to be aggregated too — and ordering a single row achieves
+    // nothing in any case.
     MarketPrice.findOne({
       where: { produceId: produce.id },
       attributes: [[sequelize.fn('AVG', sequelize.col('avgPrice')), 'avg']],
-      order: [['priceDate', 'DESC']],
       raw: true,
     }),
   ]);

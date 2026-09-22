@@ -55,6 +55,26 @@ function openSource() {
   );
 }
 
+/**
+ * MySQL hands JSON columns back as strings and booleans as 1/0. The
+ * destination model says which column is which, so each row is converted to
+ * what PostgreSQL expects before it is written.
+ */
+function convertRow(row, model) {
+  const out = { ...row };
+  for (const [name, attr] of Object.entries(model.getAttributes())) {
+    const key = attr.field || name;
+    if (out[key] === null || out[key] === undefined) continue;
+    const kind = String(attr.type?.key || '');
+    if ((kind === 'JSON' || kind === 'JSONB') && typeof out[key] === 'string') {
+      try { out[key] = JSON.parse(out[key]); } catch { /* keep what was stored */ }
+    } else if (kind === 'BOOLEAN' && typeof out[key] === 'number') {
+      out[key] = out[key] === 1;
+    }
+  }
+  return out;
+}
+
 (async () => {
   if (env.db.dialect !== 'postgres') {
     logger.error(`DB_DIALECT is "${env.db.dialect}". Point .env at PostgreSQL before running this.`);
@@ -80,38 +100,29 @@ function openSource() {
   }
   logger.success('Connected to the MySQL source');
 
-  // Rebuild each model against the source connection, so reads use the same
-  // column definitions, getters and JSON handling as the destination.
-  const sourceModels = {};
-  for (const name of Object.keys(target.sequelize.models)) {
-    const model = target.sequelize.models[name];
-    sourceModels[name] = source.define(name, model.rawAttributes, {
-      tableName: model.getTableName(),
-      timestamps: model.options.timestamps,
-      paranoid: model.options.paranoid,
-      freezeTableName: true,
-      indexes: [],
-      hooks: {},
-    });
-  }
+  /** Reads a table from MySQL as plain rows, and counts it. */
+  const readTable = async (table) => (await source.query(`SELECT * FROM \`${table}\``))[0];
+  const countTable = async (table) => Number((await source.query(`SELECT COUNT(*) AS n FROM \`${table}\``))[0][0].n);
 
-  const names = ORDER.filter((n) => sourceModels[n]);
-  const missing = Object.keys(sourceModels).filter((n) => !ORDER.includes(n));
+  const allModels = target.sequelize.models;
+  const names = ORDER.filter((n) => allModels[n]);
+  const missing = Object.keys(allModels).filter((n) => !ORDER.includes(n));
   if (missing.length) names.push(...missing); // anything new, after the known order
 
   console.log('\x1b[1m  What is in the source\x1b[0m');
   const counts = {};
   let total = 0;
   for (const name of names) {
+    const table = allModels[name].getTableName();
     let n = 0;
     try {
-      n = await sourceModels[name].count({ paranoid: false });
+      n = await countTable(table);
     } catch (err) {
-      logger.warn(`${name}: ${err.message}`);
+      logger.warn(`${table}: ${err.message}`);
     }
     counts[name] = n;
     total += n;
-    if (n) console.log(`    ${String(n).padStart(7)}  ${sourceModels[name].getTableName()}`);
+    if (n) console.log(`    ${String(n).padStart(7)}  ${table}`);
   }
   console.log(`\n    ${String(total).padStart(7)}  rows in total\n`);
 
@@ -142,8 +153,9 @@ function openSource() {
   let copied = 0;
   for (const name of names) {
     if (!counts[name]) continue;
-    const model = target.sequelize.models[name];
-    const rows = await sourceModels[name].findAll({ paranoid: false, raw: true, order: [['id', 'ASC']] }).catch(() => []);
+    const model = allModels[name];
+    const table = model.getTableName();
+    const rows = (await readTable(table)).map((row) => convertRow(row, model));
     if (!rows.length) continue;
 
     // In batches, so a large table (market prices) does not exhaust memory
@@ -156,7 +168,7 @@ function openSource() {
       });
     }
     copied += rows.length;
-    logger.info(`${model.getTableName()} — ${rows.length} row(s)`);
+    logger.info(`${table} — ${rows.length} row(s)`);
   }
 
   /**
@@ -165,8 +177,7 @@ function openSource() {
    * insert would collide. This moves each one past the highest id.
    */
   for (const name of names) {
-    const model = target.sequelize.models[name];
-    const table = model.getTableName();
+    const table = allModels[name].getTableName();
     try {
       await pg.query(
         `SELECT setval(pg_get_serial_sequence('"${table}"', 'id'),

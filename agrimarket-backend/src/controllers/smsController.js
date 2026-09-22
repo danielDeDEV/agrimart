@@ -4,6 +4,7 @@ const ApiError = require('../utils/ApiError');
 const { ok, created, paginated } = require('../utils/response');
 const { paginate, normalizePhone, daysAgo } = require('../utils/helpers');
 const smsService = require('../services/smsService');
+const { LIKE } = require('../utils/search');
 const auditService = require('../services/auditService');
 const priceService = require('../services/priceService');
 const logger = require('../utils/logger');
@@ -61,7 +62,7 @@ async function handleKeyword(phone, text) {
       const cropName = args.join(' ');
       if (!cropName) return 'AgriMart: Send PRICE followed by the crop, e.g. PRICE MAIZE';
 
-      const produce = await Produce.findOne({ where: { name: { [Op.like]: `%${cropName}%` } } });
+      const produce = await Produce.findOne({ where: { name: { [LIKE]: `%${cropName}%` } } });
       if (!produce) return `AgriMart: We do not track "${cropName}" yet. Try MAIZE, RICE, TOMATO, YAM or CASSAVA.`;
 
       const digest = await priceService.buildPriceDigest({
@@ -78,7 +79,7 @@ async function handleKeyword(phone, text) {
       const [crop, qty, price] = args;
       if (!crop || !qty || !price) return 'AgriMart: Send SELL <crop> <quantity> <price>, e.g. SELL MAIZE 20 450';
 
-      const produce = await Produce.findOne({ where: { name: { [Op.like]: `%${crop}%` } } });
+      const produce = await Produce.findOne({ where: { name: { [LIKE]: `%${crop}%` } } });
       if (!produce) return `AgriMart: We do not list "${crop}". Dial ${env.ussd.serviceCode} to see all crops.`;
       if (Number.isNaN(Number(qty)) || Number.isNaN(Number(price))) {
         return 'AgriMart: Quantity and price must be numbers, e.g. SELL MAIZE 20 450';
@@ -182,7 +183,7 @@ exports.list = asyncHandler(async (req, res) => {
   if (req.query.type) where.type = req.query.type;
   if (req.query.search) {
     const term = `%${req.query.search}%`;
-    where[Op.or] = [{ recipient: { [Op.like]: term } }, { message: { [Op.like]: term } }];
+    where[Op.or] = [{ recipient: { [LIKE]: term } }, { message: { [LIKE]: term } }];
   }
   if (req.query.from || req.query.to) {
     where.createdAt = {};

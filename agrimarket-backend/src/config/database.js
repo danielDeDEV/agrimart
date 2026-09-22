@@ -30,7 +30,9 @@ const common = {
     ...(isPostgres ? {} : { charset: 'utf8mb4', collate: 'utf8mb4_unicode_ci' }),
   },
   pool: { max: 15, min: 0, acquire: 60000, idle: 10000 },
-  timezone: isPostgres ? undefined : '+00:00',
+  // MySQL takes a timezone offset; PostgreSQL rejects one and stores UTC
+  // itself, so the key has to be absent rather than undefined.
+  ...(isPostgres ? {} : { timezone: '+00:00' }),
   retry: { max: 3 },
   dialectOptions,
 };

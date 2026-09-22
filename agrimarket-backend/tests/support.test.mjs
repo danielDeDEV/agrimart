@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { suite, API, sql, FRONTEND_DIR, col } from './helpers.mjs';
+import { suite, API, sql, FRONTEND_DIR, col, isPostgres } from './helpers.mjs';
 
 const t = suite('Support — the contact form, with and without screenshots');
 const check = (...args) => t.check(...args);
@@ -37,5 +37,5 @@ check('the plain contact form still works', res.status === 201 && !!body?.data?.
 // tidy up
 const codes = [code, body?.data?.code].filter(Boolean).map((c) => `'${c}'`).join(',');
 if (codes) sql(`DELETE FROM support_tickets WHERE code IN (${codes})`);
-sql(`DELETE FROM sms_messages WHERE type='support' AND ${col('createdAt')} >= NOW() - INTERVAL 5 MINUTE`);
+sql(`DELETE FROM sms_messages WHERE type='support' AND ${col('createdAt')} >= NOW() - ${isPostgres ? "INTERVAL '5 minutes'" : 'INTERVAL 5 MINUTE'}`);
 t.done();

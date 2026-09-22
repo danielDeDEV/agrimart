@@ -201,7 +201,7 @@ export function suite(title) {
 export function cleanupTestRows({ names = [], phones = [], sessionPrefixes = [] } = {}) {
   const quoted = (list) => list.map((v) => `'${String(v).replace(/'/g, "''")}'`).join(',');
   const where = [];
-  if (names.length) where.push(`fullName IN (${quoted(names)})`);
+  if (names.length) where.push(`${col('fullName')} IN (${quoted(names)})`);
   if (phones.length) where.push(`phone IN (${quoted(phones)})`);
   if (!where.length) return 0;
 
