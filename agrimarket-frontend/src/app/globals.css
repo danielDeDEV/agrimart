@@ -1,0 +1,234 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 158 35% 9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 158 35% 9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 158 35% 9%;
+
+    --primary: 142 72% 29%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 140 30% 96%;
+    --secondary-foreground: 142 60% 20%;
+
+    --muted: 150 20% 96%;
+    --muted-foreground: 155 10% 42%;
+
+    --accent: 38 92% 50%;
+    --accent-foreground: 26 60% 15%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 150 16% 90%;
+    --input: 150 16% 90%;
+    --ring: 142 72% 29%;
+
+    --radius: 0.85rem;
+
+    --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --font-display: 'Plus Jakarta Sans', 'Inter', ui-sans-serif, system-ui, 'Segoe UI', sans-serif;
+  }
+
+  .dark {
+    --background: 158 40% 5%;
+    --foreground: 140 20% 96%;
+
+    --card: 158 32% 8%;
+    --card-foreground: 140 20% 96%;
+
+    --popover: 158 32% 8%;
+    --popover-foreground: 140 20% 96%;
+
+    --primary: 142 62% 45%;
+    --primary-foreground: 158 45% 6%;
+
+    --secondary: 158 24% 14%;
+    --secondary-foreground: 140 20% 96%;
+
+    --muted: 158 22% 13%;
+    --muted-foreground: 145 12% 65%;
+
+    --accent: 38 92% 55%;
+    --accent-foreground: 26 60% 12%;
+
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 158 20% 17%;
+    --input: 158 20% 18%;
+    --ring: 142 62% 45%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: 'rlig' 1, 'calt' 1, 'ss01' 1;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    @apply bg-primary/20 text-primary-800 dark:text-primary-100;
+  }
+
+  /* Slim, themed scrollbars — the admin console has a lot of long tables */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply rounded-full border-[3px] border-solid border-transparent bg-muted-foreground/25 bg-clip-content;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground/45 bg-clip-content;
+  }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+
+  /* Remove the number-input spinners on quantity and price fields */
+  input[type='number']::-webkit-outer-spin-button,
+  input[type='number']::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type='number'] {
+    -moz-appearance: textfield;
+  }
+
+  /* Microsoft Edge adds its own reveal (eye) and clear buttons while typing.
+     Every password field already has one consistent show/hide toggle
+     (PasswordInput), so the browser's duplicates are hidden. */
+  input::-ms-reveal,
+  input::-ms-clear {
+    display: none;
+  }
+}
+
+@layer components {
+  .container-wide {
+    @apply mx-auto w-full max-w-[1400px] px-4 sm:px-6 lg:px-8;
+  }
+
+  .gradient-text {
+    @apply bg-gradient-to-r from-primary-700 via-primary-500 to-gold-500 bg-clip-text text-transparent dark:from-primary-400 dark:via-primary-300 dark:to-gold-300;
+  }
+
+  .glass {
+    @apply border border-white/20 bg-white/70 backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.04];
+  }
+
+  .card-surface {
+    @apply rounded-2xl border bg-card shadow-soft transition-all duration-300;
+  }
+
+  .card-interactive {
+    @apply card-surface hover:-translate-y-1 hover:border-primary/40 hover:shadow-lift;
+  }
+
+  /* The animated conic ring used on featured cards and stat tiles */
+  .ring-glow::before {
+    content: '';
+    @apply pointer-events-none absolute inset-0 rounded-[inherit] opacity-0 transition-opacity duration-500;
+    background: radial-gradient(400px circle at var(--x, 50%) var(--y, 50%), rgb(34 197 94 / 0.12), transparent 45%);
+  }
+  .ring-glow:hover::before {
+    @apply opacity-100;
+  }
+
+  .mesh-bg {
+    @apply bg-mesh-light dark:bg-mesh-dark;
+  }
+
+  /* Faint agricultural grid used behind hero sections */
+  .grid-pattern {
+    background-image:
+      linear-gradient(to right, hsl(var(--border) / 0.5) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(var(--border) / 0.5) 1px, transparent 1px);
+    background-size: 56px 56px;
+    mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 40%, transparent 100%);
+  }
+
+  .shimmer {
+    @apply relative overflow-hidden;
+  }
+  .shimmer::after {
+    content: '';
+    @apply absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-white/25 to-transparent;
+  }
+
+  .link-underline {
+    @apply relative after:absolute after:bottom-0 after:left-0 after:h-px after:w-0 after:bg-current after:transition-all after:duration-300 hover:after:w-full;
+  }
+
+  /* Table styling shared by every admin data table */
+  .data-table {
+    @apply w-full border-collapse text-sm;
+  }
+  .data-table thead th {
+    @apply whitespace-nowrap border-b bg-muted/50 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground;
+  }
+  .data-table tbody td {
+    @apply border-b border-border/60 px-4 py-3 align-middle;
+  }
+  .data-table tbody tr {
+    @apply transition-colors hover:bg-muted/40;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  .text-pretty {
+    text-wrap: pretty;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .animation-delay-200 {
+    animation-delay: 200ms;
+  }
+  .animation-delay-400 {
+    animation-delay: 400ms;
+  }
+  .animation-delay-600 {
+    animation-delay: 600ms;
+  }
+}
+
+/* The USSD handset screen — deliberately monospaced and low-fidelity so it
+   reads as a feature phone rather than a web widget. */
+.ussd-screen {
+  font-family: ui-monospace, 'Courier New', monospace;
+  background: linear-gradient(#0c1f14, #071309);
+  color: #9dffc0;
+  text-shadow: 0 0 6px rgb(110 255 170 / 0.45);
+  line-height: 1.55;
+  letter-spacing: 0.01em;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}

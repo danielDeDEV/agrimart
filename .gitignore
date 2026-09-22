@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+
+# Secrets — never commit these. Use the .env.example files as the template.
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Build output
+.next/
+out/
+dist/
+*.tsbuildinfo
+
+# Uploads are farmers' own photos and backups are their data: both belong in
+# storage, not in the repository.
+agrimarket-backend/uploads/**
+!agrimarket-backend/uploads/**/.gitkeep
+backups/
+*.sql
+
+# Logs and runtime noise
+logs/
+*.log
+npm-debug.log*
+.pm2/
+
+# Editors and operating systems
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
