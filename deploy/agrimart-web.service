@@ -1,0 +1,38 @@
+[Unit]
+Description=AgriMart website — Next.js
+Documentation=https://github.com/YOUR/REPO/blob/main/docs/going-live.md
+After=network-online.target agrimart-api.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=agrimart
+Group=agrimart
+WorkingDirectory=/opt/agrimart/app/agrimarket-frontend
+Environment=NODE_ENV=production
+Environment=PORT=3000
+# NEXT_PUBLIC_* values are baked in at build time; this file is only read for
+# anything the server needs at runtime.
+EnvironmentFile=-/opt/agrimart/app/agrimarket-frontend/.env.local
+ExecStart=/usr/bin/node node_modules/next/dist/bin/next start -p 3000
+
+Restart=always
+RestartSec=3
+TimeoutStopSec=20
+KillSignal=SIGTERM
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=agrimart-web
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/opt/agrimart/app/agrimarket-frontend/.next
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target

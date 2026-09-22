@@ -1,0 +1,21 @@
+# Shell scripts and server configuration must keep Unix line endings. A CRLF
+# here means "bad interpreter: /usr/bin/env bash^M" on the server — which is a
+# confusing way to find out that the file was checked out on Windows.
+*.sh            text eol=lf
+*.service       text eol=lf
+Caddyfile       text eol=lf
+*.bash          text eol=lf
+
+# Windows helpers stay CRLF so Notepad and cmd.exe read them properly
+*.bat           text eol=crlf
+
+# Let git decide for everything else, and never touch binaries
+*               text=auto
+*.jpg           binary
+*.jpeg          binary
+*.png           binary
+*.webp          binary
+*.gif           binary
+*.ico           binary
+*.pdf           binary
+*.sql           binary

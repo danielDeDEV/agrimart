@@ -1,0 +1,40 @@
+[Unit]
+Description=AgriMart API — REST, USSD callbacks, SMS gateway, scheduled jobs
+Documentation=https://github.com/YOUR/REPO/blob/main/docs/going-live.md
+After=network-online.target postgresql.service
+Wants=network-online.target
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=agrimart
+Group=agrimart
+WorkingDirectory=/opt/agrimart/app/agrimarket-backend
+Environment=NODE_ENV=production
+EnvironmentFile=/opt/agrimart/app/agrimarket-backend/.env
+ExecStart=/usr/bin/node src/server.js
+
+# A farmer mid-USSD-session should not lose it to a restart if avoidable
+Restart=always
+RestartSec=3
+# Give the process time to finish in-flight requests
+TimeoutStopSec=20
+KillSignal=SIGTERM
+
+# Logs go to the journal: journalctl -u agrimart-api -f
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=agrimart-api
+
+# The service needs no more of the system than its own directory
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/opt/agrimart/app/agrimarket-backend/uploads /opt/agrimart/app/agrimarket-backend/logs /opt/agrimart/backups
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target

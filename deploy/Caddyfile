@@ -1,0 +1,68 @@
+# AgriMart — reverse proxy and automatic HTTPS.
+#
+# Caddy obtains and renews Let's Encrypt certificates on its own; there is no
+# certbot step and no renewal cron. It only needs the two domains below to
+# point at this server (two A records) and ports 80 and 443 to be open.
+#
+# Install:  sudo cp deploy/Caddyfile /etc/caddy/Caddyfile
+#           sudo systemctl reload caddy
+#
+# Replace both domains before using this.
+
+# ── The website ──────────────────────────────────────────────────────
+agrimart.gh, www.agrimart.gh {
+	encode zstd gzip
+
+	# Next.js serves everything, including its own static assets
+	reverse_proxy 127.0.0.1:3000
+
+	# The browser may cache the build's immutable assets for a year
+	@immutable path /_next/static/* /images/* /icon.svg
+	header @immutable Cache-Control "public, max-age=31536000, immutable"
+
+	log {
+		output file /var/log/caddy/agrimart-web.log {
+			roll_size 10mb
+			roll_keep 5
+		}
+	}
+}
+
+# ── The API ──────────────────────────────────────────────────────────
+api.agrimart.gh {
+	encode zstd gzip
+
+	# Farmers' uploaded photos, served straight from the API's disk
+	handle /uploads/* {
+		reverse_proxy 127.0.0.1:5000
+		header Cache-Control "public, max-age=604800"
+	}
+
+	handle {
+		reverse_proxy 127.0.0.1:5000 {
+			# Socket.IO and the USSD callbacks both need the real client
+			# address and a connection that is allowed to stay open
+			header_up X-Real-IP {remote_host}
+			transport http {
+				read_timeout 120s
+				write_timeout 120s
+			}
+		}
+	}
+
+	# The gateway callbacks carry ?secret=… — keep it out of the access log
+	log {
+		output file /var/log/caddy/agrimart-api.log {
+			roll_size 10mb
+			roll_keep 5
+		}
+		format filter {
+			wrap console
+			fields {
+				request>uri query {
+					replace secret REDACTED
+				}
+			}
+		}
+	}
+}
