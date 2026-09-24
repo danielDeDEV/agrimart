@@ -42,11 +42,37 @@ function collect() {
   }
 
   // ── Database ───────────────────────────────────────────────────────
-  if (!process.env.DB_PASSWORD) {
-    fail('DB_PASSWORD', 'is empty. Give the database user a password and do not use root in production');
-  }
-  if (String(process.env.DB_USER || 'root') === 'root') {
-    warn('DB_USER', 'is root. Create a user that can only reach the AgriMart database');
+  /**
+   * A hosted database hands you one connection string, and the credentials
+   * live inside it — DB_USER and DB_PASSWORD are never read. Checking them
+   * there would demand values the deployment does not have.
+   */
+  if (env.db.url) {
+    let parsed = null;
+    try {
+      parsed = new URL(env.db.url);
+    } catch {
+      fail('DATABASE_URL', 'is not a valid connection string');
+    }
+    if (parsed) {
+      if (!parsed.password) {
+        fail('DATABASE_URL', 'has no password in it. Copy the full connection string your database provider gave you');
+      }
+      if (isLocal(parsed.hostname)) {
+        warn('DATABASE_URL', 'points at localhost, which a hosted server cannot reach');
+      }
+      const encrypted = env.db.ssl || /sslmode=(require|verify-full|verify-ca)/.test(env.db.url);
+      if (!encrypted && !isLocal(parsed.hostname)) {
+        fail('DATABASE_URL', 'reaches a remote database without TLS. Add ?sslmode=require, or set DB_SSL=true');
+      }
+    }
+  } else {
+    if (!process.env.DB_PASSWORD) {
+      fail('DB_PASSWORD', 'is empty. Give the database user a password and do not use root in production');
+    }
+    if (String(process.env.DB_USER || 'root') === 'root') {
+      warn('DB_USER', 'is root. Create a user that can only reach the AgriMart database');
+    }
   }
   if (process.env.DB_SYNC_ALTER === 'true') {
     fail('DB_SYNC_ALTER', 'must not be true in production — it lets the server rewrite live tables on boot');
@@ -119,7 +145,14 @@ function validateEnv({ exitOnError = true, silent = false } = {}) {
       console.log('\x1b[31m│\x1b[0m  \x1b[1mThis server is not ready for production\x1b[0m                 \x1b[31m│\x1b[0m');
       console.log('\x1b[31m└──────────────────────────────────────────────────────────┘\x1b[0m');
       errors.forEach(({ what, why }, i) => console.log(`  ${i + 1}. \x1b[1m${what}\x1b[0m ${why}`));
-      console.log('\n  Fix these in agrimarket-backend/.env and start again.');
+      // On a hosted platform there is no .env to edit — the values come from
+      // the dashboard, and sending someone to a file that does not exist wastes
+      // the one minute they have while the service is down.
+      const hosted = !!(process.env.RENDER || process.env.DYNO || process.env.FLY_APP_NAME
+        || process.env.KOYEB_APP_NAME || process.env.RAILWAY_ENVIRONMENT || env.db.url);
+      console.log(hosted
+        ? '\n  Set these in your host\'s environment variables, then redeploy.'
+        : '\n  Fix these in agrimarket-backend/.env and start again.');
       console.log('  To check without starting the server:  npm run check:env\n');
     }
     if (exitOnError) process.exit(1);
