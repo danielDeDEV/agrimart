@@ -229,6 +229,37 @@ export function cleanupTestRows({ names = [], phones = [], sessionPrefixes = [] 
   return ids && ids !== 'NULL' ? ids.split(',').length : 0;
 }
 
+/**
+ * Deletes files the suites uploaded.
+ *
+ * Removing the database row is not enough once uploads live in object
+ * storage: the file stays in the bucket and every test run adds more, which
+ * quietly eats a free storage quota. Safe to call with anything — URLs that
+ * are not ours are ignored.
+ */
+export async function removeStoredFiles(urls = []) {
+  const list = urls.flat().filter((u) => typeof u === 'string' && u);
+  if (!list.length) return 0;
+
+  const supabaseUrl = envValue('SUPABASE_URL', '').replace(/\/$/, '');
+  const key = envValue('SUPABASE_SERVICE_KEY', '');
+  const bucket = envValue('SUPABASE_BUCKET', 'uploads');
+  const marker = `/storage/v1/object/public/${bucket}/`;
+
+  let removed = 0;
+  for (const url of list) {
+    const at = url.indexOf(marker);
+    if (at === -1 || !supabaseUrl || !key) continue;
+    const objectPath = url.slice(at + marker.length).split(/[?#]/)[0];
+    const res = await fetch(`${supabaseUrl}/storage/v1/object/${bucket}/${objectPath}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${key}` },
+    }).catch(() => null);
+    if (res?.ok) removed++;
+  }
+  return removed;
+}
+
 /** Stops with a clear message when the API is not running. */
 export async function requireApi() {
   try {

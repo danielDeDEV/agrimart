@@ -84,7 +84,7 @@ exports.create = asyncHandler(async (req, res) => {
   const images = await storage.saveAll(req.files, 'listings');
   const limit = upload.maxListingPhotos();
   if (images.length > limit) {
-    images.forEach(upload.removeStoredFile);
+    await storage.removeAll(images);
     throw ApiError.badRequest(`A listing can have at most ${limit} photo${limit > 1 ? 's' : ''}.`);
   }
 
@@ -146,7 +146,7 @@ exports.update = asyncHandler(async (req, res) => {
   }
 
   await listing.update(patch);
-  removed.forEach(upload.removeStoredFile);
+  await storage.removeAll(removed);
 
   const message = added.length
     ? `${added.length} photo${added.length > 1 ? 's' : ''} added`

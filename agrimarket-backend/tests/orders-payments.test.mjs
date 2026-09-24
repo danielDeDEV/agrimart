@@ -1,6 +1,6 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { suite, API, sql, cleanupTestRows, BACKEND_DIR, FRONTEND_DIR, col } from './helpers.mjs';
+import { suite, API, sql, cleanupTestRows, BACKEND_DIR, FRONTEND_DIR, col , envValue , removeStoredFiles } from './helpers.mjs';
 
 const t = suite('Orders — payment evidence, complaints and managing people');
 const check = (...args) => t.check(...args);
@@ -29,7 +29,17 @@ const evidenceForm = (fields, count = 1) => {
   for (let i = 0; i < count; i++) f.append('attachments', new Blob([JPEG], { type: 'image/jpeg' }), `proof-${i}.jpg`);
   return f;
 };
-const onDisk = (url) => existsSync(join(UPLOADS, ...url.split('/uploads/')[1].split('/')));
+/**
+ * Is the evidence actually stored? On local disk that means the file exists;
+ * on object storage it means the URL serves it. A cache-busting query keeps a
+ * stale edge copy from making a missing file look present.
+ */
+const storedRemotely = envValue('STORAGE_DRIVER', '') === 'supabase';
+const isStored = async (url) => {
+  if (!url) return false;
+  if (!storedRemotely) return existsSync(join(UPLOADS, ...url.split('/uploads/')[1].split('/')));
+  return (await fetch(`${url}?cb=${Date.now()}`)).status === 200;
+};
 
 const started = sql('SELECT NOW()');
 const created = { orders: [], tickets: [], users: [] };
@@ -66,7 +76,8 @@ let updated = r.data?.data;
 check('payment recorded', r.status === 200, JSON.stringify(r.data?.message));
 check('reference and method stored', updated?.paymentProof?.reference === 'MP260920.1423.A12345' && updated.paymentProof.method === 'momo');
 check('both screenshots stored', updated?.paymentProof?.images?.length === 2, JSON.stringify(updated?.paymentProof?.images));
-check('screenshot files are on disk', (updated?.paymentProof?.images ?? []).every(onDisk));
+check('screenshot files are stored',
+  (await Promise.all((updated?.paymentProof?.images ?? []).map(isStored))).every(Boolean));
 check('it is not marked paid until the farmer confirms', updated?.paymentStatus === 'pending' && updated.status === 'accepted', `${updated?.paymentStatus}/${updated?.status}`);
 check('the farmer is told what to look for', /says they paid/i.test(sql(`SELECT message FROM sms_messages WHERE ${col('relatedId')}=${order.id} AND type='payment' ORDER BY id DESC LIMIT 1`)));
 
@@ -157,6 +168,15 @@ r = await call('DELETE', `/admin/users/${superAdmin.user.id}`, { token: admin.to
 check('nor reach them through the users page', r.status === 403, String(r.status));
 r = await call('DELETE', `/admin/users/${superAdmin.user.id}`, { token: superAdmin.token });
 check('and the super admin cannot delete themselves', r.status === 400, String(r.status));
+
+// the evidence this suite uploaded, so the bucket does not grow each run
+const uploaded = [
+  ...(updated?.paymentProof?.images ?? []),
+  ...(ticket?.attachments ?? []),
+];
+const goneFromStorage = await removeStoredFiles(uploaded);
+if (goneFromStorage) console.log(`
+  ${goneFromStorage} stored file(s) removed`);
 
 // leave the database as we found it: the accounts this suite registered, and
 // the order and ticket it raised against the seeded demo accounts

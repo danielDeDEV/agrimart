@@ -110,21 +110,22 @@ exports.updateStatus = asyncHandler(async (req, res) => {
  */
 exports.recordPayment = asyncHandler(async (req, res) => {
   const files = await storage.saveAll(req.files, 'evidence');
-  const reject = (error) => {
-    files.forEach(upload.removeStoredFile);
+  // Evidence is already stored by this point; discard it before refusing
+  const reject = async (error) => {
+    await storage.removeAll(files);
     throw error;
   };
 
   const order = await Order.findByPk(req.params.id);
-  if (!order) reject(ApiError.notFound('Order not found'));
-  if (order.buyerId !== req.user.id) reject(ApiError.forbidden('Only the buyer records a payment on this order'));
+  if (!order) await reject(ApiError.notFound('Order not found'));
+  if (order.buyerId !== req.user.id) await reject(ApiError.forbidden('Only the buyer records a payment on this order'));
   if (['completed', 'cancelled', 'rejected'].includes(order.status)) {
-    reject(ApiError.badRequest(`This order is ${order.status}, so a payment cannot be added`));
+    await reject(ApiError.badRequest(`This order is ${order.status}, so a payment cannot be added`));
   }
 
   const { reference, method = order.paymentMethod, note, amount } = req.body;
   if (!reference && !files.length) {
-    reject(ApiError.badRequest('Add the payment reference or a screenshot so the farmer can check it'));
+    await reject(ApiError.badRequest('Add the payment reference or a screenshot so the farmer can check it'));
   }
 
   const proof = {
@@ -180,21 +181,22 @@ exports.recordPayment = asyncHandler(async (req, res) => {
  */
 exports.report = asyncHandler(async (req, res) => {
   const files = await storage.saveAll(req.files, 'evidence');
-  const reject = (error) => {
-    files.forEach(upload.removeStoredFile);
+  // Evidence is already stored by this point; discard it before refusing
+  const reject = async (error) => {
+    await storage.removeAll(files);
     throw error;
   };
 
   const order = await Order.findByPk(req.params.id);
-  if (!order) reject(ApiError.notFound('Order not found'));
+  if (!order) await reject(ApiError.notFound('Order not found'));
 
   const isBuyer = order.buyerId === req.user.id;
   const isFarmer = order.farmerId === req.user.id;
-  if (!isBuyer && !isFarmer) reject(ApiError.forbidden('This order is not yours'));
+  if (!isBuyer && !isFarmer) await reject(ApiError.forbidden('This order is not yours'));
 
   const { category = 'order', message, subject } = req.body;
   if (!message || String(message).trim().length < 10) {
-    reject(ApiError.badRequest('Tell us what went wrong, in a sentence or two'));
+    await reject(ApiError.badRequest('Tell us what went wrong, in a sentence or two'));
   }
 
   const ticket = await SupportTicket.create({

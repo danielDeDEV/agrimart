@@ -179,12 +179,12 @@ function catalogPhotoHandlers(Model, label, entity, libraryImage) {
       const url = await storage.save(req.file, 'catalog');
       const item = await Model.findByPk(req.params.id);
       if (!item) {
-        upload.removeStoredFile(url);
+        await storage.remove(url);
         throw ApiError.notFound(`${label} not found`);
       }
       const previous = item.imageUrl;
       await item.update({ imageUrl: url });
-      upload.removeStoredFile(previous);
+      await storage.remove(previous);
       await auditService.record(req, {
         action: `${entity}.photo`, entity, entityId: item.id,
         description: `Uploaded a new photo for ${label.toLowerCase()} "${item.name}"`,
@@ -198,7 +198,7 @@ function catalogPhotoHandlers(Model, label, entity, libraryImage) {
       if (!item) throw ApiError.notFound(`${label} not found`);
       const previous = item.imageUrl;
       await item.update({ imageUrl: libraryImage(item.slug) });
-      upload.removeStoredFile(previous);
+      await storage.remove(previous);
       await auditService.record(req, {
         action: `${entity}.photo`, entity, entityId: item.id,
         description: `Reset the photo for ${label.toLowerCase()} "${item.name}"`,

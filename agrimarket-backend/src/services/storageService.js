@@ -29,6 +29,22 @@ const DRIVER = (process.env.STORAGE_DRIVER || (supabase.url && supabase.key ? 's
 
 const uploadsRoot = () => path.resolve(__dirname, '..', '..', 'uploads');
 
+/**
+ * How long a browser or CDN may keep a file.
+ *
+ * Listing photos, avatars and catalogue images never change — their names
+ * carry a timestamp and random suffix — so a year is right and saves a
+ * farmer's data bundle on every page.
+ *
+ * Evidence is different. Those are screenshots of mobile-money confirmations
+ * attached to a payment dispute, and when one is deleted it has to actually
+ * stop being served. A long cache would keep handing it out from the edge for
+ * a year after it was removed.
+ */
+// Supabase prepends "public," to whatever is sent, so "private" would be
+// contradicted; the short lifetime is what actually does the work here.
+const cacheFor = (folder) => (folder === 'evidence' ? 'max-age=60' : 'max-age=31536000');
+
 /** A name that cannot collide and cannot be guessed. */
 function safeName(folder, originalName) {
   const ext = (path.extname(originalName || '') || '.jpg').toLowerCase().slice(0, 8);
@@ -72,7 +88,7 @@ const remote = {
       headers: {
         Authorization: `Bearer ${supabase.key}`,
         'Content-Type': file.mimetype || 'application/octet-stream',
-        'cache-control': 'public, max-age=31536000',
+        'cache-control': cacheFor(folder),
       },
       body: file.buffer,
     });

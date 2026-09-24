@@ -27,7 +27,22 @@ const photoForm = (count, extra = {}) => {
   for (const [k, v] of Object.entries(extra)) f.append(k, v);
   return f;
 };
-const fileOnDisk = (url) => existsSync(join(UPLOADS, ...url.split('/uploads/')[1].split('/')));
+/**
+ * Is the file actually stored?
+ *
+ * On local disk that means the file is there. On object storage the disk is
+ * irrelevant — what matters is whether the URL serves it. A cache-busting
+ * query is appended so a stale edge copy cannot make a deleted file look
+ * present.
+ */
+const storedRemotely = !/localhost|127\.0\.0\.1/.test(envValue('SUPABASE_URL', '')) && envValue('STORAGE_DRIVER', '') === 'supabase';
+
+const fileStored = async (url) => {
+  if (!url) return false;
+  if (!storedRemotely) return existsSync(join(UPLOADS, ...url.split('/uploads/')[1].split('/')));
+  const res = await fetch(`${url}${url.includes('?') ? '&' : '?'}cb=${Date.now()}`);
+  return res.status === 200;
+};
 
 /**
  * Sells over the gateway webhook — what a real handset reaches. The website's
@@ -111,7 +126,7 @@ check('2 photos added', r.status === 200 && listing?.images?.length === 2, `${r.
 check('response says "2 photos added"', r.data?.message === '2 photos added', r.data?.message);
 check('cover is now the farmer\'s photo', listing?.photoSource === 'farmer' && listing.coverImage === listing.images[0]);
 const [photoA, photoB] = listing.images;
-check('uploaded files are on disk', fileOnDisk(photoA) && fileOnDisk(photoB));
+check('uploaded files are stored', (await fileStored(photoA)) && (await fileStored(photoB)));
 
 r = await call('PATCH', `/listings/${id}`, { token: farmer.token, json: { images: ['https://evil.example/x.jpg'] } });
 check('images cannot be set to arbitrary URLs', r.data?.data?.images?.length === 2 && !r.data.data.images.some((u) => u.includes('evil')));
@@ -131,12 +146,12 @@ check('the stranger\'s upload is discarded', readdirSync(`${UPLOADS}/listings`).
 
 r = await call('PATCH', `/listings/${id}`, { token: farmer.token, json: { keepImages: [photoB] } });
 check('removing one photo keeps the other', r.data?.data?.images?.length === 1 && r.data.data.images[0] === photoB, r.data?.message);
-check('removed photo file is deleted', !fileOnDisk(photoA));
+check('removed photo file is deleted', !(await fileStored(photoA)));
 
 r = await call('PATCH', `/listings/${id}`, { token: farmer.token, json: { keepImages: [] } });
 listing = r.data?.data;
 check('removing all photos falls back to the catalogue photo', listing?.photoSource === 'catalogue' && listing.coverImage === '/images/produce/maize.jpg');
-check('last photo file is deleted', !fileOnDisk(photoB));
+check('last photo file is deleted', !(await fileStored(photoB)));
 
 console.log('\n5. Admins replace and restore a catalogue photo');
 const admin = (await call('POST', '/auth/admin/login', { json: { identifier: 'admin@agrimart.gh', password: 'Admin@2026' } })).data.data;
@@ -150,7 +165,7 @@ check('farmers cannot change catalogue photos', r.status === 403, String(r.statu
 r = await call('POST', `/reference/produce/${maize.id}/image`, { token: admin.token, form: one() });
 const custom = r.data?.data?.imageUrl;
 check('admin upload succeeds', r.status === 200 && /\/uploads\/catalog\//.test(custom), `${r.status} ${custom}`);
-check('uploaded catalogue file is on disk', custom && fileOnDisk(custom));
+check('uploaded catalogue file is stored', !!custom && (await fileStored(custom)));
 r = await call('GET', `/listings/${ussdCode}`);
 check('USSD listing now shows the new photo (live fallback)', r.data.data.listing.coverImage === custom);
 
@@ -159,7 +174,7 @@ check('imageUrl cannot be set as free text', r.data?.data?.imageUrl === custom, 
 
 r = await call('DELETE', `/reference/produce/${maize.id}/image`, { token: admin.token });
 check('reset restores the library photo', r.data?.data?.imageUrl === '/images/produce/maize.jpg', r.data?.data?.imageUrl);
-check('replaced upload is deleted', !fileOnDisk(custom));
+check('replaced upload is deleted', !(await fileStored(custom)));
 r = await call('GET', `/listings/${ussdCode}`);
 check('listing is back on the library photo', r.data.data.listing.coverImage === '/images/produce/maize.jpg');
 
@@ -168,7 +183,7 @@ const catCustom = r.data?.data?.imageUrl;
 check('category photo upload works', /\/uploads\/catalog\//.test(catCustom ?? ''));
 r = await call('DELETE', `/reference/categories/${maize.categoryId}/image`, { token: admin.token });
 check('category photo reset works', r.data?.data?.imageUrl === '/images/categories/cereals-grains.jpg', r.data?.data?.imageUrl);
-check('category upload file is deleted', catCustom && !fileOnDisk(catCustom));
+check('category upload file is deleted', !!catCustom && !(await fileStored(catCustom)));
 
 // the listings this suite published over the gateway
 if (created.listings.filter(Boolean).length) {
