@@ -11,15 +11,14 @@ const ensureDir = (dir) => {
 /** Resolved from this file so the service runs the same under pm2 or systemd. */
 const uploadsRoot = () => path.resolve(__dirname, '..', '..', 'uploads');
 
-const makeStorage = (folder) =>
-  multer.diskStorage({
-    destination: (_req, _file, cb) => cb(null, ensureDir(path.join(uploadsRoot(), folder))),
-    filename: (_req, file, cb) => {
-      const ext = path.extname(file.originalname).toLowerCase();
-      const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-      cb(null, `${folder}-${unique}${ext}`);
-    },
-  });
+/**
+ * Files are held in memory, not written to disk by multer.
+ *
+ * Where they finally land is storageService's decision — a local folder or
+ * object storage — and a request that is refused never writes anything at all,
+ * which is what stops rejected uploads leaving files behind.
+ */
+const makeStorage = () => multer.memoryStorage();
 
 const imageFilter = (_req, file, cb) => {
   const allowed = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
@@ -43,24 +42,24 @@ const maxListingPhotos = () => {
 };
 
 /**
- * Deletes a file this server stored, given the public URL it was served at.
- * Anything that is not one of our uploads (a catalogue photo, a foreign URL)
- * is left alone, and a path can never escape the uploads folder.
+ * Deletes a file this platform stored, given the public URL it was served at.
+ * Anything that is not one of our uploads — a catalogue photo, a foreign URL —
+ * is left alone. Required lazily, because storageService reads configuration
+ * that is loaded after this module.
  */
 function removeStoredFile(url) {
-  const match = typeof url === 'string' && url.match(/\/uploads\/([a-z]+)\/([^/?#]+)$/i);
-  if (!match) return Promise.resolve();
-  const root = uploadsRoot();
-  const file = path.join(root, match[1], path.basename(match[2]));
-  if (!file.startsWith(root + path.sep)) return Promise.resolve();
-  return fs.promises.unlink(file).catch(() => {});
+  return require('../services/storageService').remove(url);
 }
 
-/** Deletes whatever multer has already written for a request that failed. */
-function discardUploads(req) {
-  const files = [...(req.files || []), ...(req.file ? [req.file] : [])];
-  if (!files.length) return Promise.resolve();
-  return Promise.all(files.map((f) => (f?.path ? fs.promises.unlink(f.path).catch(() => {}) : null)));
+
+/**
+ * Nothing to discard any more: multer keeps uploads in memory, so a request
+ * that fails before the controller stores them leaves no trace. Kept as a
+ * no-op because the error handler still calls it, and because a future driver
+ * that buffers to disk would need it again.
+ */
+function discardUploads(_req) {
+  return Promise.resolve();
 }
 
 module.exports = {
@@ -68,16 +67,16 @@ module.exports = {
   discardUploads,
   PHOTO_HARD_CAP,
   maxListingPhotos,
-  listingImages: multer({ storage: makeStorage('listings'), fileFilter: imageFilter, limits }).array('images', PHOTO_HARD_CAP),
-  avatar: multer({ storage: makeStorage('avatars'), fileFilter: imageFilter, limits }).single('avatar'),
+  listingImages: multer({ storage: makeStorage(), fileFilter: imageFilter, limits }).array('images', PHOTO_HARD_CAP),
+  avatar: multer({ storage: makeStorage(), fileFilter: imageFilter, limits }).single('avatar'),
   /** Replacement photos for produce types and categories, uploaded by admins. */
-  catalogImage: multer({ storage: makeStorage('catalog'), fileFilter: imageFilter, limits }).single('image'),
+  catalogImage: multer({ storage: makeStorage(), fileFilter: imageFilter, limits }).single('image'),
   /**
    * Evidence people attach to a payment or a complaint: a MoMo confirmation
    * screenshot, a photo of what arrived. Kept apart from listing photos so it
    * is never shown in the marketplace.
    */
-  evidenceImages: multer({ storage: makeStorage('evidence'), fileFilter: imageFilter, limits }).array('attachments', 4),
+  evidenceImages: multer({ storage: makeStorage(), fileFilter: imageFilter, limits }).array('attachments', 4),
   MAX_EVIDENCE_FILES: 4,
   /** Public URL for a stored file, used when building API responses. */
   publicUrl: (req, folder, filename) =>

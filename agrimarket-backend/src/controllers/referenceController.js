@@ -6,6 +6,7 @@ const { slugify } = require('../utils/helpers');
 const auditService = require('../services/auditService');
 const { LIKE } = require('../utils/search');
 const upload = require('../middleware/upload');
+const storage = require('../services/storageService');
 const { produceImage, categoryImage } = require('../utils/catalogPhotos');
 
 /** Photos are managed through the upload endpoints below, never as free-text URLs. */
@@ -175,7 +176,7 @@ function catalogPhotoHandlers(Model, label, entity, libraryImage) {
     /** POST /:id/image — replace the photo with an upload (multipart field "image"). */
     upload: asyncHandler(async (req, res) => {
       if (!req.file) throw ApiError.badRequest('Choose a JPG, PNG or WEBP photo to upload');
-      const url = upload.publicUrl(req, 'catalog', req.file.filename);
+      const url = await storage.save(req.file, 'catalog');
       const item = await Model.findByPk(req.params.id);
       if (!item) {
         upload.removeStoredFile(url);

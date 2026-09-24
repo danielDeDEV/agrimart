@@ -123,7 +123,19 @@ const DEMO_LOGINS = [
   }
   notes.push(`${listings} listings and ${orders} orders currently in the database.`);
 
-  // ── 6. Can the gateway reach this server ───────────────────────────
+  // ── 6. Will uploaded photos survive a deploy ───────────────────────
+  const storage = require('../services/storageService').check();
+  if (!storage.ok) {
+    blockers.push(`Uploads are set to object storage but ${storage.detail}. Photos and dispute evidence would fail to save.`);
+  } else if (storage.driver === 'local' && env.isProd) {
+    warnings.push(
+      'Uploads go to local disk. On a hosted platform the disk is wiped on every deploy, taking listing photos, ' +
+      'avatars and payment-dispute screenshots with it. Set STORAGE_DRIVER=supabase on that kind of host.'
+    );
+  }
+  notes.push(`Uploads: ${storage.detail}.`);
+
+  // ── 7. Can the gateway reach this server ───────────────────────────
   if (!env.gatewaySecret) {
     blockers.push('GATEWAY_SECRET is empty: anyone who finds the URL can post fake USSD sessions and inbound SMS.');
   }

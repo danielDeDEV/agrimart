@@ -24,6 +24,7 @@ const banner = () => {
   console.log(`  SMS hook   http://localhost:${env.port}${env.apiPrefix}/sms/inbound`);
   console.log(`  Website    ${env.clientUrl}`);
   console.log(`  SMS mode   ${env.sms.provider}${env.sms.provider === 'mock' ? ' (messages are logged, not billed)' : ''}`);
+  console.log(`  Uploads    ${require('./services/storageService').describe()}`);
   console.log('');
 };
 

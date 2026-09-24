@@ -9,6 +9,7 @@ const { get: setting } = require('../services/settingsService');
 const { ok, paginated } = require('../utils/response');
 const { paginate, normalizePhone, daysAgo } = require('../utils/helpers');
 const upload = require('../middleware/upload');
+const storage = require('../services/storageService');
 
 const PROFILE_INCLUDES = [
   { model: Region, as: 'region', attributes: ['id', 'name'] },
@@ -45,7 +46,7 @@ exports.updateProfile = asyncHandler(async (req, res) => {
 /** POST /users/me/avatar */
 exports.uploadAvatar = asyncHandler(async (req, res) => {
   if (!req.file) throw ApiError.badRequest('Choose an image to upload');
-  const url = upload.publicUrl(req, 'avatars', req.file.filename);
+  const url = await storage.save(req.file, 'avatars');
   await req.user.update({ avatarUrl: url });
   return ok(res, { avatarUrl: url }, 'Profile photo updated');
 });

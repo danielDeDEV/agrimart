@@ -6,6 +6,7 @@ const { paginate } = require('../utils/helpers');
 const listingService = require('../services/listingService');
 const auditService = require('../services/auditService');
 const upload = require('../middleware/upload');
+const storage = require('../services/storageService');
 const { isCataloguePhoto } = require('../utils/catalogPhotos');
 
 /** GET /listings — public marketplace feed with filters, search and sorting. */
@@ -80,7 +81,7 @@ exports.create = asyncHandler(async (req, res) => {
   }
 
   // Photos can only arrive as uploaded files — never as URLs in the form body
-  const images = (req.files || []).map((f) => upload.publicUrl(req, 'listings', f.filename));
+  const images = await storage.saveAll(req.files, 'listings');
   const limit = upload.maxListingPhotos();
   if (images.length > limit) {
     images.forEach(upload.removeStoredFile);
@@ -99,7 +100,7 @@ exports.create = asyncHandler(async (req, res) => {
 
 /** PATCH /listings/:id */
 exports.update = asyncHandler(async (req, res) => {
-  const added = (req.files || []).map((f) => upload.publicUrl(req, 'listings', f.filename));
+  const added = await storage.saveAll(req.files, 'listings');
   // Multer has already written any new photos; discard them if we refuse the edit
   const reject = async (error) => {
     await Promise.all(added.map(upload.removeStoredFile));

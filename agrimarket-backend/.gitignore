@@ -4,8 +4,7 @@ node_modules/
 # Secrets. .env holds the gateway API key, the JWT secrets and the database
 # password — it must never be committed. .env.example is the template to copy.
 .env
-.env.local
-.env.*.local
+.env.*
 !.env.example
 
 # Farmers' own photos and evidence screenshots belong in storage, not here

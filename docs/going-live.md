@@ -299,6 +299,31 @@ traffic arrives.
 - **Delivery reports on the dashboard.** The SMS centre records them; farmers
   cannot see whether their own alerts arrived.
 
+## Uploaded files on a hosted platform
+
+On a server with its own disk, uploads live in `agrimarket-backend/uploads`
+and nothing needs configuring. On a hosted platform — Render, Koyeb, Fly and
+the rest — **that disk is wiped on every deploy.** Listing photos, avatars and,
+most importantly, the screenshots people attach to payment disputes would
+disappear with it.
+
+There, point uploads at object storage instead:
+
+```bash
+STORAGE_DRIVER=supabase
+SUPABASE_URL=https://yourproject.supabase.co
+SUPABASE_SERVICE_KEY=your-service-role-key
+SUPABASE_BUCKET=uploads
+```
+
+Create the bucket in Supabase and mark it **public**, so the browser can load
+the photos directly. `npm run check:live` warns when a production server is
+still writing to local disk, and refuses to pass if the bucket is half
+configured.
+
+The 57 catalogue photos are unaffected either way — they ship inside the
+website build, which is how USSD and SMS listings get a picture at all.
+
 ## Going-live checklist
 
 - [ ] `NODE_ENV=production npm run check:env` prints *Ready for production*

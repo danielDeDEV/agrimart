@@ -1,5 +1,6 @@
 const { SupportTicket, User, Order, Op } = require('../models');
 const upload = require('../middleware/upload');
+const storage = require('../services/storageService');
 const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
 const { ok, created, paginated } = require('../utils/response');
@@ -14,7 +15,7 @@ const { activity } = require('../sockets/io');
 exports.create = asyncHandler(async (req, res) => {
   const { name, phone, email, subject, category, message } = req.body;
   // Screenshots are optional but often the fastest way to understand a problem
-  const attachments = (req.files || []).map((f) => upload.publicUrl(req, 'evidence', f.filename));
+  const attachments = await storage.saveAll(req.files, 'evidence');
 
   const ticket = await SupportTicket.create({
     code: generateCode('TKT'),

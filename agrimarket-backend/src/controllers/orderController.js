@@ -7,6 +7,7 @@ const orderService = require('../services/orderService');
 const { LIKE } = require('../utils/search');
 const auditService = require('../services/auditService');
 const upload = require('../middleware/upload');
+const storage = require('../services/storageService');
 const { sendSms } = require('../services/smsService');
 const { notify } = require('../services/notificationService');
 const { activity } = require('../sockets/io');
@@ -108,7 +109,7 @@ exports.updateStatus = asyncHandler(async (req, res) => {
  * it against their own messages and confirms, which is what marks the order paid.
  */
 exports.recordPayment = asyncHandler(async (req, res) => {
-  const files = (req.files || []).map((f) => upload.publicUrl(req, 'evidence', f.filename));
+  const files = await storage.saveAll(req.files, 'evidence');
   const reject = (error) => {
     files.forEach(upload.removeStoredFile);
     throw error;
@@ -178,7 +179,7 @@ exports.recordPayment = asyncHandler(async (req, res) => {
  * desk can see the evidence and the full order timeline in one place.
  */
 exports.report = asyncHandler(async (req, res) => {
-  const files = (req.files || []).map((f) => upload.publicUrl(req, 'evidence', f.filename));
+  const files = await storage.saveAll(req.files, 'evidence');
   const reject = (error) => {
     files.forEach(upload.removeStoredFile);
     throw error;
