@@ -10,6 +10,13 @@ router.get('/inbound', gatewayAuth, ctrl.inbound);
 router.post('/delivery-report', gatewayAuth, ctrl.deliveryReport);
 router.get('/delivery-report', gatewayAuth, ctrl.deliveryReport);
 
+// The same two with the secret in the path, for gateways that drop the query
+// string when they call a callback
+router.post('/inbound/:secret', gatewayAuth, ctrl.inbound);
+router.get('/inbound/:secret', gatewayAuth, ctrl.inbound);
+router.post('/delivery-report/:secret', gatewayAuth, ctrl.deliveryReport);
+router.get('/delivery-report/:secret', gatewayAuth, ctrl.deliveryReport);
+
 // A user's own SMS history, shown on the dashboard
 router.get('/mine', protect, ctrl.mine);
 

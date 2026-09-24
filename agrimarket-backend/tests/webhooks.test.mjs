@@ -1,4 +1,4 @@
-import { suite, API, sql, envValue, cleanupTestRows, col } from './helpers.mjs';
+import { suite, API, sql, envValue, cleanupTestRows, col , sqlNumber } from './helpers.mjs';
 
 const t = suite("Webhooks — exactly what Africa's Talking posts");
 const check = (...args) => t.check(...args);
@@ -88,10 +88,29 @@ console.log('\n5. The shared secret');
 if (!SECRET) {
   console.log('  skip GATEWAY_SECRET is empty in .env, so the webhooks are open (a production server refuses to start like this)');
 } else {
-  r = await post('/ussd', { sessionId: 'x', serviceCode: '*920*1234#', phoneNumber: PHONE, text: '' }, { secret: '' });
-  check('a call without the secret is refused', r.status === 403, String(r.status));
-  r = await post('/ussd', { sessionId: 'x', serviceCode: '*920*1234#', phoneNumber: PHONE, text: '' }, { secret: 'wrong' });
-  check('a wrong secret is refused', r.status === 403, String(r.status));
+  /**
+   * A refused USSD call answers 200 with an END screen rather than a 403 and
+   * JSON: the handset can only render the gateway's own format, and a farmer
+   * who sees "invalid response" has no idea the callback is misconfigured.
+   * Nothing is let through — no session is created either way.
+   */
+  const before = sqlNumber('SELECT COUNT(*) FROM ussd_sessions');
+
+  r = await post('/ussd', { sessionId: 'nosecret', serviceCode: '*920*1234#', phoneNumber: PHONE, text: '' }, { secret: '' });
+  check('a call without the secret is turned away', r.text.startsWith('END'), `${r.status} ${r.text.slice(0, 50)}`);
+  check('and says so in a way a handset can show', /configuration/i.test(r.text), r.text.slice(0, 60));
+
+  r = await post('/ussd', { sessionId: 'wrongsecret', serviceCode: '*920*1234#', phoneNumber: PHONE, text: '' }, { secret: 'wrong' });
+  check('a wrong secret is turned away too', r.text.startsWith('END'), `${r.status} ${r.text.slice(0, 50)}`);
+  check('neither one started a session', sqlNumber('SELECT COUNT(*) FROM ussd_sessions') === before);
+
+  // An SMS callback has no human waiting, so it still answers with a plain 403
+  r = await post('/sms/inbound', { from: PHONE, text: 'HELP' }, { secret: 'wrong' });
+  check('an SMS callback without the secret is refused', r.status === 403, String(r.status));
+
+  // The secret may also arrive in the path, for gateways that drop the query
+  r = await post(`/ussd/${SECRET}`, { sessionId: `path_${RUN}`, serviceCode: '*920*1234#', phoneNumber: PHONE, text: '' }, { secret: '' });
+  check('the secret works in the path as well', r.text.startsWith('CON '), `${r.status} ${r.text.slice(0, 40)}`);
 }
 
 // the registration this suite performs is a real account — remove it

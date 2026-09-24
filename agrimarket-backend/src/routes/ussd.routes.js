@@ -17,4 +17,17 @@ router.delete('/simulate/:sessionId', ctrl.resetSimulation);
 
 router.get('/menu', ctrl.menuTree);
 
+/**
+ * The same webhook with the shared secret in the path.
+ *
+ * Some gateways drop the query string when they call a callback, which makes
+ * ?secret=… arrive empty and every dial fail with nothing to explain it. A
+ * path segment always survives.
+ *
+ * Declared last on purpose: "/:secret" matches any single segment, so it must
+ * come after /simulate and /menu or it would swallow them.
+ */
+router.post('/:secret', limiter.ussd, gatewayAuth, ctrl.gateway);
+router.get('/:secret', limiter.ussd, gatewayAuth, ctrl.gateway);
+
 module.exports = router;

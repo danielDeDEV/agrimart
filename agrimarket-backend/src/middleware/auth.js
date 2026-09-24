@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const env = require('../config/env');
 const { User } = require('../models');
 const ApiError = require('../utils/ApiError');
+const logger = require('../utils/logger');
 const asyncHandler = require('../utils/asyncHandler');
 
 function signAccessToken(user) {
@@ -78,12 +79,41 @@ const adminOnly = [protect, restrictTo('admin', 'superadmin')];
 const superAdminOnly = [protect, restrictTo('superadmin')];
 
 /** Guards the USSD/SMS gateway webhooks from public abuse. */
-const gatewayAuth = (req, _res, next) => {
+/**
+ * Guards the USSD/SMS gateway webhooks from public abuse.
+ *
+ * The secret is accepted from a header, the query string, the posted body, or
+ * the end of the path. Gateways differ in what they preserve when they call a
+ * callback — some drop the query string entirely — and a farmer who dials into
+ * a rejected callback just sees "invalid response", with nothing in the logs
+ * to say why. Accepting all four removes that whole class of silent failure.
+ *
+ * Rejections answer in the gateway's own language: a USSD caller gets an END
+ * screen rather than JSON they cannot read.
+ */
+const gatewayAuth = (req, res, next) => {
   const configured = process.env.GATEWAY_SECRET;
   if (!configured) return next(); // open in development
-  const provided = req.headers['x-gateway-secret'] || req.query.secret;
-  if (provided !== configured) return next(ApiError.forbidden('Invalid gateway credentials'));
-  next();
+
+  const provided =
+    req.headers['x-gateway-secret'] ||
+    req.query.secret ||
+    req.body?.secret ||
+    req.params.secret;
+
+  if (provided === configured) return next();
+
+  logger.warn(
+    `Rejected a gateway call to ${req.originalUrl.split('?')[0]} — ` +
+    `${provided ? 'the secret did not match' : 'no secret was supplied'}. ` +
+    'Check the callback URL in the gateway dashboard.'
+  );
+
+  // A USSD handset cannot render JSON; say something the caller can read
+  if (req.originalUrl.includes('/ussd')) {
+    return res.type('text/plain').send('END Service configuration error. Please try again later.');
+  }
+  return next(ApiError.forbidden('Invalid gateway credentials'));
 };
 
 module.exports = {
